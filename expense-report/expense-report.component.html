@@ -1,0 +1,159 @@
+<div class="flex flex-col items-center bg-white w-full h-[90%] shadow-md overflow-hidden">
+    <div class="bg-[#E6E5E5] w-full flex justify-between items-center relative">
+      <div class="w-10"></div>
+        <p class="text-[#0E9B86] text-center text-2xl font-bold py-2 flex-grow">{{ title }}</p>
+        <button 
+            class="text-black text-2xl font-bold px-4"
+            *ngIf="iconExit"
+            (click)="closeReporOfPeriod()"
+        >
+            &times;
+        </button>
+    </div>
+    <div class="relative group flex items-center justify-between px-6 pb-2 pt-6 w-full">
+        <p class="text-sm text-[#0E9B86] font-bold">
+            Total de registros: {{ getTotalRegistros() }}
+        </p>
+    </div>
+    <div class="overflow-x-auto p-6 pt-0 w-full">
+        <div class="max-h-[83%] overflow-scroll" *ngIf="!showChart">
+            <table class="w-full border-collapse rounded-lg overflow-hidden overflow-y-auto">
+                <thead class="bg-gray-200 text-sm text-gray-700">
+                    <tr>
+                        <th *ngFor="let columna of visibleColumns"
+                            [hidden]="!columna.visible"
+                            class="px-4 py-2 text-center cursor-pointer select-none sticky top-0 z-10 bg-gray-200">
+                            <button type="button"
+                                    class="flex items-center justify-center gap-2 w-full"
+                                    (click)="sortByColumn(columna)">
+                                <span class="select-none">{{ columna.label }}</span>
+                                <!-- iconos según columna activa y dirección -->
+                                <svg *ngIf="sortColumn === columna.field && sortDirection === 'asc'" class="w-3 h-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"></path></svg>
+                                <svg *ngIf="sortColumn === columna.field && sortDirection === 'desc'" class="w-3 h-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let report of expenseReport"
+                      tabindex="0"
+                      role="button"
+                      (click)="onRowClick(report)"
+                      (keydown.enter)="onRowClick(report)"
+                      class="border-b hover:bg-[#E6E5E5] transition-colors"
+                      [ngClass]="{
+                        'cursor-pointer transition-colors': !isDrilled,
+                        'text-red-600': isDrilled && report.diferencia < 0,
+                        'text-[#217346]': isDrilled && report.diferencia >= 0,
+                        'text-gray-700': !isDrilled
+                      }">
+                    <td *ngFor="let columna of visibleColumns"
+                        [hidden]="!columna.visible"
+                        class="px-3 py-2 whitespace-nowrap font-bold text-center">
+                      <ng-container [ngSwitch]="columna.field">
+                        <span *ngSwitchCase="'gasto'">
+                          ${{ report.gasto | number }}
+                        </span>
+                        <span *ngSwitchCase="'ingreso'">
+                          ${{ report.ingreso | number }}
+                        </span>
+                        <span *ngSwitchCase="'diferencia'">
+                          ${{ report.diferencia | number }}
+                        </span>
+                        <span *ngSwitchDefault>
+                          {{ report[columna.field] }}
+                        </span>
+                      </ng-container>
+                    </td>
+                  </tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- cuando estamos en detalle por empresa, mostrar diferencia total externa -->
+        <div *ngIf="isDrilled" class="mt-3 flex justify-end items-center gap-4">
+            <div class="text-sm text-gray-600">Total Diferencia (Ingreso - Gasto):</div>
+            <div [ngClass]="totalDifference >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'">
+              ${{ totalDifference | number }}
+            </div>
+        </div>
+        
+        <!-- Línea comparativa (ganancias vs precios) -->
+        <div class="mt-4 mb-4 w-full overflow-x-auto" *ngIf="showChart">
+          <div class="inline-block bg-white p-2 rounded shadow-sm w-full max-h-[38%]" [style.minWidth.px]="chartWidth">
+            <svg
+              [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight"
+              preserveAspectRatio="xMidYMid meet"
+              class="w-full h-auto"
+              role="img"
+              aria-label="Comparativa ganancias y precios por periodo">
+
+              <!-- Y grid + labels -->
+              <g *ngFor="let tick of yTicks">
+                <line
+                  [attr.x1]="paddingLeft"
+                  [attr.x2]="chartWidth - paddingRight"
+                  [attr.y1]="tick.y"
+                  [attr.y2]="tick.y"
+                  stroke="#e5e7eb" stroke-width="1"></line>
+                <text
+                  [attr.x]="6"
+                  [attr.y]="tick.y + 3"
+                  fill="#6b7280"
+                  font-size="8">{{ tick.label | number }}</text>
+              </g>
+
+              <!-- Ejes -->
+              <line [attr.x1]="paddingLeft" [attr.y1]="chartHeight - paddingBottom"
+                    [attr.x2]="chartWidth - paddingRight" [attr.y2]="chartHeight - paddingBottom"
+                    stroke="#374151" stroke-width="1.2"></line>
+
+              <!-- Polilíneas -->
+              <polyline [attr.points]="pointsPrecios"
+                        stroke="#ef4444" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"></polyline>
+
+              <polyline [attr.points]="pointsGanancias"
+                        stroke="#2563eb" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"></polyline>
+
+              <!-- Puntos y etiquetas (precios = rojo) -->
+              <ng-container *ngFor="let p of coordsPrecios; let i = index">
+                <circle [attr.cx]="p.x" [attr.cy]="p.y" r="2.5" fill="#ef4444"></circle>
+                <text [attr.x]="p.x" [attr.y]="p.y - 6" fill="#ef4444" font-size="8" text-anchor="middle">
+                  ${{ expenseReport[i].gasto | number }}
+                </text>
+              </ng-container>
+
+              <!-- Puntos y etiquetas (ganancias = azul) -->
+              <ng-container *ngFor="let p of coordsGanancias; let i = index">
+                <circle [attr.cx]="p.x" [attr.cy]="p.y" r="2.5" fill="#2563eb"></circle>
+                <text [attr.x]="p.x" [attr.y]="p.y - 12" fill="#2563eb" font-size="8" text-anchor="middle">
+                  ${{ expenseReport[i].ingreso | number }}
+                </text>
+              </ng-container>
+
+              <!-- Etiquetas X (periodos) -->
+              <ng-container *ngFor="let lx of xLabels; let i = index">
+                <text [attr.x]="lx.x" [attr.y]="chartHeight - 6" fill="#6b7280" font-size="9" text-anchor="middle">{{ lx.label }}</text>
+              </ng-container>
+            </svg>
+          </div>
+        </div>
+        <!-- Boton ver grafica -->
+        <div class="flex justify-end w-full">
+            <button
+                class="bg-[#005F6E] text-white font-bold py-2 px-5 hover:bg-[#004C58] mt-4 mb-2 mr-2"
+                (click)="toggleChart()"
+                >
+                <i class="bx bx-show-alt mr-2"></i>
+                {{ showChart ? 'Ocultar Gráfica' : 'Ver Gráfica' }}
+            </button>
+            <button
+                *ngIf="!showChart"
+                (click)="exportToExcel()"
+                class="bg-[#217346] text-white font-bold py-2 px-5 hover:bg-[#2e9b58] mt-4 mb-2 mr-2"
+                >
+                <i class="bx bx-file mr-2"></i>
+                XLSX
+            </button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,407 @@
+<!--Contenido principal-->
+<div class="flex flex-col items-center bg-white w-full h-[90%] shadow-md overflow-hidden">
+    <div class="bg-[#E6E5E5] w-full">
+        <p class="text-[#0E9B86] text-center text-2xl font-bold py-2">Reporte General</p>
+    </div>
+    <div class="p-6 flex items-center gap-2 w-full justify-center">
+        <div class="relative w-full">
+            <input
+                type="text"
+                placeholder="Buscar..."
+                class="border rounded-md text-sm w-full text-[#005F6E] pr-10"
+                [(ngModel)]="searchText"
+                id="searchInput"
+                (keyup.enter)="isValidSearch(searchText) && consultarReporte()"
+            >
+            <button 
+                *ngIf="searchText"
+                type="button"
+                class="absolute inset-y-0 right-0 flex items-center pr-3 focus:outline-none"
+                (click)="searchText=''"
+                tabindex="-1"
+            >
+            <svg class="w-5 h-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+
+            </button>
+        </div>
+        <button
+            title="Buscar"
+            (click)="isValidSearch(searchText) && consultarReporte()"
+            class="bg-[#383A6B] text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400"
+        >
+            <i class="bx bx-search text-lg"></i>
+        </button>
+    </div>
+    <div class="relative group flex items-center justify-between px-6 pb-2 w-full">
+        <p class="text-sm text-[#0E9B86] font-bold">
+            Total de registros: {{ getTotalRegistros() }}
+        </p>
+
+        <button
+          class="bg-[#383A6B] text-white rounded-sm shadow hover:bg-purple-700"
+          (click)="showColumnMenu = !showColumnMenu"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="w-5 h-5">
+                <rect x="3" y="4" width="18" height="16" rx="2" ry="2"></rect>
+                <line x1="9" y1="4" x2="9" y2="20"></line>
+                <line x1="15" y1="4" x2="15" y2="20"></line>
+            </svg>
+        </button>
+    </div>
+    <div class="overflow-x-auto px-6 pb-2 w-full">
+        <div
+            *ngIf="getTotalRegistros() === 0"
+            class="flex items-center justify-center text-gray-400 py-10"
+            >
+            <i class="bx bxs-error-circle text-xl mr-2"></i>
+            <p class="text-2xl">Realiza una consulta para generar un reporte.</p>
+        </div>
+    
+        <div *ngIf="getTotalRegistros() >= 1" class="max-h-[83%] overflow-scroll">
+            <table
+                class="w-full border-collapse rounded-lg overflow-hidden overflow-y-auto"
+            >
+                <thead class="bg-gray-200 text-sm text-gray-700">
+                    <tr>
+                        <th *ngFor="let col of columnas"
+                            class="px-3 py-2 text-left cursor-pointer select-none sticky top-0 z-10 bg-gray-200"
+                            [hidden]="!col.visible"
+                            (click)="sortByColumn(col)">
+                            {{col.label}}
+                            <span *ngIf="sortColumn === col.field">
+                                <svg *ngIf="sortDirection === 'asc'" class="inline w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"></path></svg>
+                                <svg *ngIf="sortDirection === 'desc'" class="inline w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                            </span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm">
+                    <tr
+                    *ngFor="let row of filteredData"
+                    class="border-b hover:bg-[#E6E5E5] transition-colors"
+                    [class.bg-[#017D91]]="selectedRowRef === row"
+                    (click)="openModal(row)"
+                    >
+                        <td
+                          *ngFor="let col of columnas"
+                          [ngClass]="{
+                              'flex justify-center items-center': col.field === 'fcRiesgo',
+                              'bg-red-500 text-white': col.field === 'fcRiesgo' && row[col.field] === 'ROJO',
+                              'bg-[#0E9B86] text-white': col.field === 'fcRiesgo' && row[col.field] === 'PAGADO',
+                              'bg-gray-200 text-gray-700': col.field === 'fcRiesgo' && row[col.field] === 'NO APLICA',
+                              'bg-[#4EBD5B]': col.field === 'fcRiesgo' && row[col.field] === 'VERDE',
+                              'bg-[#FFD900]': col.field === 'fcRiesgo' && row[col.field] === 'AMARILLO',
+                              'bg-white text-black': col.field === 'fcRiesgo' && row[col.field] === 'BLANCO',
+                              'text-right': col.field === 'fiTarifa' || col.field === 'fiMontoPago'
+                          }"
+                          class="px-3 py-2 whitespace-nowrap"
+                          [hidden]="!col.visible"
+                      >
+                          <ng-container *ngIf="col.field === 'fcRiesgo'; else tarifaOrNormal">
+                              <ng-container [ngSwitch]="row[col.field]">
+                                  <span *ngSwitchCase="'VERDE'">
+                                      <i class="bx bxs-error-circle text-xl text-white"></i>
+                                  </span>
+                                  <span *ngSwitchCase="'AMARILLO'">
+                                      <i class="bx bxs-error-circle text-xl text-white"></i>
+                                  </span>
+                                  <span *ngSwitchCase="'ROJO'">
+                                      <i class="bx bxs-error-circle text-xl text-white"></i>
+                                  </span>
+                                  <span *ngSwitchCase="'BLANCO'">
+                                      <i class="bx bxs-error-circle text-xl text-black"></i>
+                                  </span>
+                                  <span *ngSwitchCase="'PAGADO'">
+                                      <i class="bx bx-check text-xl"></i>
+                                  </span>
+                                  <span *ngSwitchCase="'NO APLICA'">
+                                      <i class="bx bx-x text-xl"></i>
+                                  </span>
+                                  <span *ngSwitchDefault>
+                                      {{ row[col.field] }}
+                                  </span>
+                              </ng-container>
+                          </ng-container>
+                          <ng-template #tarifaOrNormal>
+                              <ng-container *ngIf="col.field === 'fiTarifa' || col.field === 'fiMontoPago'; else normalCell">
+                                  {{ row[col.field] | currency:'':'symbol':'1.0-2' }}
+                              </ng-container>
+                              <ng-template #normalCell>
+                                  {{ col.field.startsWith('fdFecha') ? formatFechaSlash(row[col.field] + '') : row[col.field] }}
+                              </ng-template>
+                          </ng-template>
+                      </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="flex justify-end w-full">
+            <button
+                *ngIf="getTotalRegistros() >= 1"
+                (click)="downloadExcel()"
+                class="bg-[#217346] text-white font-bold py-2 px-5 hover:bg-[#2e9b58] mt-4 mb-2 mr-2"
+                >
+                <i class="bx bx-file mr-2"></i>
+                XLSX
+            </button>
+        </div>
+    </div>
+
+</div>
+<!-- Menú de selección de columnas -->
+<div 
+    *ngIf="showColumnMenu"
+    class="fixed top-20 right-10 w-64 bg-white border rounded-lg shadow-lg z-50 p-4"
+>
+    <h3 class="font-bold mb-2 text-[#383A6B] text-sm">Selecciona columnas</h3>
+    <div class="flex flex-col gap-2 max-h-60 overflow-y-auto">
+        <label *ngFor="let col of columnas" class="flex items-center gap-2 text-sm">
+            <input type="checkbox" [(ngModel)]="col.visible" />
+            {{ col.label }}
+        </label>
+    </div>
+    <button
+        class="mt-4 w-full bg-[#383A6B] text-white rounded py-1 hover:bg-purple-700"
+        (click)="showColumnMenu = false"
+    >
+        Cerrar
+    </button>
+</div>
+
+<!-- Modal -->
+<div
+  *ngIf="showModal && selectedRow"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+>
+  <div class="bg-[#E6E5E5] shadow-lg p-0 max-w-3xl w-full relative rounded-lg">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-8 py-3 bg-[#E6E5E5] border-b rounded-t-lg">
+      <h2 class="text-2xl font-bold text-[#0E9B86] mx-auto">
+        {{ isEditing ? 'Actualización de periodo' : 'Detalles del Registro' }}
+      </h2>
+      <button
+        class="absolute top-2 right-6 text-black text-2xl font-bold"
+        (click)="closeModal();"
+      >
+        &times;
+      </button>
+    </div>
+    <div class="px-8 py-8 pt-2 bg-white rounded-b-lg">
+      <div class="flex justify-end gap-2 mb-4">
+        <button *ngIf="selectedRow?.fcStatus !== 'PAGADO' && !isEditing"
+          (click)="openStatusModal(selectedRow); showModal = false">
+          <svg width="22" height="17" viewBox="0 0 22 17" fill="none">
+            <path d="M7.53 0v4H20.95V6.01H7.53v3.99L0 5l7.53-5Z" fill="#005F6E"/>
+            <path d="M14.47 7v4H1.05v2.01H14.47v3L22 12l-7.53-5Z" fill="#005F6E"/>
+          </svg>
+        </button>
+        <button (click)="isEditing = true" *ngIf="!isEditing">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M17.71 4.04c.39-.39.39-1.04 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.84 1.83 3.75 3.75M0 14.25V18h3.75L14.81 6.93l-3.75-3.75L0 14.25Z" fill="#005F6E"/>
+            </svg>
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-x-12 gap-y-4">
+        <!-- Columna izquierda -->
+        <div>
+          <div class="mb-4 flex">
+            <span class="font-bold mr-2">Estatus:</span>
+            <span class="text-[#017D91] font-bold">{{ selectedRow.fcStatus }}</span>
+          </div>
+          <div class="mb-4 flex">
+            <span class="font-bold mr-2">Cliente:</span>
+            <span class="text-[#017D91] font-bold">{{ selectedRow.fcEmpresa }}</span>
+          </div>
+          <div class="mb-4 flex">
+            <span class="text-[#E57373] font-bold mr-2">Fecha final:</span>
+            <input type="date" class="border-2 border-[#017D91] rounded w-full px-2 py-1"
+              [(ngModel)]="selectedRow.fdFechaFinal"
+              [readOnly]="!isEditing"
+              [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''">
+          </div>
+          <div class="mb-4 flex" *ngIf="selectedRow?.fcStatus === 'CARTA ACEPTACION' || selectedRow?.fcStatus === 'CFDI' || selectedRow?.fcStatus === 'PAGADO'">
+            <span class="text-[#E57373] font-bold mr-2">Carta de aceptacion:</span>
+            <input type="text" class="border-2 border-[#017D91] rounded w-full px-2 py-1"
+              [(ngModel)]="selectedRow.fcOdc"
+              [readOnly]="!isEditing"
+              [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''">
+          </div>
+          <div class="mb-4 flex" *ngIf="selectedRow?.fcStatus === 'CFDI' || selectedRow?.fcStatus === 'PAGADO'">
+            <span class="text-[#E57373] font-bold mr-2">CFDI:</span>
+            <input type="text" class="border-2 border-[#017D91] rounded w-full px-2 py-1"
+              [(ngModel)]="selectedRow.fcCfdi"
+              [readOnly]="!isEditing"
+              [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''">
+          </div>
+          <div class="mb-4 flex" *ngIf="selectedRow?.fcStatus === 'CFDI' || selectedRow?.fcStatus === 'PAGADO'">
+            <span class="font-bold mr-2">ODC:</span>
+            <input type="text" class="border-2 border-[#017D91] rounded w-full px-2 py-1"
+              [(ngModel)]="selectedRow.fiOrden"
+              [readOnly]="!isEditing"
+              [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''">
+          </div>
+           <div class="mb-4 flex" *ngIf="selectedRow?.fcStatus === 'PAGADO'">
+            <span class="font-bold mr-2">Fecha de pago:</span>
+            <input type="date" class="border-2 border-[#017D91] rounded w-full px-2 py-1"
+              [(ngModel)]="selectedRow.fdFechaPago"
+              [readOnly]="!isEditing"
+              [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''">
+          </div>
+        </div>
+        <!-- Columna derecha -->
+        <div>
+          <div class="mb-4 flex">
+            <span class="font-bold mr-2">Empleado:</span>
+            <span class="text-[#017D91] font-bold">{{ selectedRow.fcEmpleado }}</span>
+          </div>
+          <div class="mb-4 flex">
+            <span class="font-bold mr-2">Fecha inicial:</span>
+            <span class="text-[#017D91] font-bold">{{ selectedRow.fdFechaInicial }}</span>
+          </div>
+          <div class="mb-4 flex">
+            <span class="text-[#E57373] font-bold mr-2">Monto pago:</span>
+            <ng-container *ngIf="!isEditing; else editableMonto">
+              <input
+                type="text"
+                class="border-2 border-[#017D91] rounded w-full px-2 py-1 text-right"
+                [value]="selectedRow.fiMontoPago | currency:'MXN':'symbol':'1.0-2'"
+                readonly
+              />
+            </ng-container>
+            <ng-template #editableMonto>
+              <input
+                type="text"
+                class="border-2 border-[#017D91] rounded w-full px-2 py-1 text-right"
+                [(ngModel)]="selectedRow.fiMontoPago"
+                [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''"
+              />
+            </ng-template>
+          </div>
+          <div class="mb-4 flex" *ngIf="selectedRow?.fcStatus === 'CARTA ACEPTACION' || selectedRow?.fcStatus === 'CFDI' || selectedRow?.fcStatus === 'PAGADO'">
+            <span class="text-[#E57373] font-bold mr-2">Fecha CA:</span>
+            <input type="date" class="border-2 border-[#017D91] rounded w-full px-2 py-1"
+              [(ngModel)]="selectedRow.fdFechaOdc"
+              [readOnly]="!isEditing"
+              [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''">
+          </div>
+          <div class="mb-4 flex"  *ngIf="selectedRow?.fcStatus === 'CFDI' || selectedRow?.fcStatus === 'PAGADO'">
+            <span class="text-[#E57373] font-bold mr-2">Fecha CFDI:</span>
+            <input type="date" class="border-2 border-[#017D91] rounded w-full px-2 py-1"
+              [(ngModel)]="selectedRow.fdFechaCfdi"
+              [readOnly]="!isEditing"
+              [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''">
+          </div>
+          <div class="mb-4 flex" *ngIf="selectedRow?.fcStatus === 'CFDI' || selectedRow?.fcStatus === 'PAGADO'">
+            <span class="text-[#E57373] font-bold mr-2">Monto CFDI:</span>
+            <ng-container *ngIf="!isEditing; else editableMonto">
+              <input
+                type="text"
+                class="border-2 border-[#017D91] rounded w-full px-2 py-1 text-right"
+                [value]="selectedRow.fiTarifa | currency:'MXN':'symbol':'1.0-2'"
+                readonly
+              />
+            </ng-container>
+            <ng-template #editableMonto>
+              <input
+                type="text"
+                class="border-2 border-[#017D91] rounded w-full px-2 py-1 text-right"
+                [(ngModel)]="selectedRow.fiTarifa"
+                [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''"
+              />
+            </ng-template>
+          </div>
+        </div>
+      </div>
+      <!-- Comentarios -->
+      <div class="mt-2">
+        <span class="font-bold">Comentarios:</span>
+        <textarea class="border-2 border-[#017D91] rounded w-full mt-2 px-2 py-2" rows="3"
+          [(ngModel)]="selectedRow.fcComentarios"
+          [readOnly]="!isEditing"
+          [ngClass]="isEditing ? 'hover:ring-2 hover:border-[#017D91] focus:ring-2 focus:border-[#017D91]' : ''">
+        </textarea>
+      </div>
+      <div class="flex justify-end mt-6">
+        <button
+          *ngIf="isEditing"
+          (click)="isEditing = false; actualizarPeriodo(); closeModal()"
+          class="bg-[#005F6E] text-white rounded-md py-2 px-6 hover:bg-[#004C58]"
+        >
+          Actualizar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Actualizar Estatus -->
+<div
+  *ngIf="showStatusModal && selectedRow"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+>
+  <div class="bg-white rounded-lg shadow-lg max-w-md w-full relative">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-3 border-b rounded-t-lg bg-[#E6E5E5]">
+      <h2 class="text-xl font-bold text-[#0E9B86] mx-auto">Actualizar estatus</h2>
+      <button
+        class="absolute top-2 right-6 text-black text-2xl font-bold"
+        (click)="closeStatusModal();"
+      >
+        &times;
+      </button>
+    </div>
+    <!-- Body -->
+    <div class="px-6 py-6">
+      <!-- Nombre seleccionado -->
+      <span class="block text-[#005F6E] font-bold text-base mb-4 text-end">
+        {{ selectedRow.fcEmpleado }}<br>{{ selectedRow.fcEmpresa }}
+      </span>
+      <!-- Estatus -->
+      <div class="mb-4">
+        <span class="font-bold text-red-600 text-sm mb-1 block">* Estatus:</span>
+        <select
+          class="border rounded w-full px-2 py-1"
+          [(ngModel)]="selectedRow.fiIdStatus"
+        >
+          <option *ngFor="let status of statusOptions" [value]="status.id">
+            {{ status.descripcion }}
+          </option>
+        </select>
+      </div>
+      <!-- Documento soporte -->
+      <div class="mb-4">
+        <span class="font-bold text-sm mb-1 block">Documento Soporte:</span>
+        <div class="flex items-center gap-2">
+          <label class="bg-[#005F6E] px-6 hover:bg-[#004C58] text-white px-4 py-2 rounded cursor-pointer flex items-center">
+            <span class="mr-2 font-bold text-base">+</span> Selecciona archivo
+            <input type="file" class="hidden" (change)="onFileSelected($event)" />
+          </label>
+        </div>
+        <div class="flex items-center gap-2 mt-2 h-8"
+        *ngIf="selectedFileName">
+          <span class="text-gray-500 text-xs flex items-center h-8">
+            {{ selectedFileName || 'No hay archivo seleccionado.' }}
+          </span>
+          <button type="button" class="flex items-center justify-center h-8" (click)="removeFile()">
+            <svg class="w-5 h-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <!-- Botón Actualizar -->
+      <div class="flex justify-end mt-6">
+        <button
+          class="bg-[#005F6E] text-white rounded-md py-2 px-6 hover:bg-[#004C58]"
+          (click)="actualizarEstatus()"
+        >
+          Actualizar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
